@@ -1,4 +1,6 @@
-
+// StretchClock 0.2 — размер / растяжение / позиция часов на экране блокировки,
+// скрытие даты. Часы ищутся автоматически (UILabel с текстом "9:41" и крупным шрифтом).
+// Часы в статус-баре (у чёлки) исключены.
 
 #import <UIKit/UIKit.h>
 #import <objc/runtime.h>
@@ -79,26 +81,36 @@ static void debugLog(UIView *v, NSString *why, NSString *text) {
     [h seekToEndOfFile]; [h writeData:[line dataUsingEncoding:NSUTF8StringEncoding]]; [h closeFile];
 }
 
-static void applyClock(UIView *v) {
-    CGFloat sx = 1, sy = 1;
+// Только лёгкая операция: transform. Вызывается из layoutSubviews.
+static void applyTransform(UIView *v) {
     CGAffineTransform t = CGAffineTransformIdentity;
     if (gEnabled) {
-        sx = gSize * gStretchX;
-        sy = gSize * gStretchY;
-        t = CGAffineTransformMake(sx, 0, 0, sy, gOffX, gOffY);
+        t = CGAffineTransformMake(gSize * gStretchX, 0, 0, gSize * gStretchY, gOffX, gOffY);
     }
     if (!CGAffineTransformEqualToTransform(v.transform, t)) v.transform = t;
-    // чтобы увеличенный текст не был мыльным — рендерим с большим разрешением
-    CGFloat target = UIScreen.mainScreen.scale * MAX(1.0, MIN(MAX(sx, sy), 3.0));
+}
+
+// Тяжёлое (чёткость, обрезка) — НИКОГДА не из layoutSubviews, только асинхронно.
+static void applyExtras(UIView *v) {
+    CGFloat s = gEnabled ? MAX(gSize * gStretchX, gSize * gStretchY) : 1.0;
+    CGFloat target = UIScreen.mainScreen.scale * MAX(1.0, MIN(s, 3.0));
     if (fabs(v.contentScaleFactor - target) > 0.01) v.contentScaleFactor = target;
-    // чтобы родитель не обрезал увеличенные/сдвинутые часы
     UIView *p = v.superview;
-    for (int i = 0; p && i < 3; i++, p = p.superview) p.clipsToBounds = NO;
+    for (int i = 0; p && i < 3; i++, p = p.superview) {
+        if (p.clipsToBounds) p.clipsToBounds = NO;
+    }
+}
+
+static void trackClock(UIView *v) {
+    if ([gClockViews containsObject:v]) return;
+    [gClockViews addObject:v];
+    __weak UIView *w = v;
+    dispatch_async(dispatch_get_main_queue(), ^{ if (w) applyExtras(w); });
 }
 
 static void refreshAll(void) {
     dispatch_async(dispatch_get_main_queue(), ^{
-        for (UIView *v in gClockViews.allObjects) { applyClock(v); [v setNeedsLayout]; }
+        for (UIView *v in gClockViews.allObjects) { applyTransform(v); applyExtras(v); }
         for (UILabel *l in gDateViews.allObjects) l.hidden = (gEnabled && gHideDate);
     });
 }
@@ -111,19 +123,29 @@ static void prefsChanged(CFNotificationCenterRef c, void *o, CFStringRef n, cons
 %hook UILabel
 - (void)layoutSubviews {
     %orig;
-    NSString *t = self.text;
-    if (!t.length || inStatusBar(self)) return;
-    CGFloat fs = self.font.pointSize;
+    static BOOL busy = NO;
+    if (busy || !self.window) return;
+    busy = YES;
 
-    if (!gClassName && fs >= kMinClockFont && looksLikeTime(t)) {
-        [gClockViews addObject:self];
-        debugLog(self, @"CLOCK", t);
-        applyClock(self);
-    } else if (fs < kMinClockFont && t.length >= 4 && !looksLikeTime(t) && chainContains(self, @"Date", 8)) {
-        [gDateViews addObject:self];
-        debugLog(self, @"DATE?", t);
-        if (gEnabled && gHideDate) self.hidden = YES;
+    if ([gClockViews containsObject:self]) {
+        applyTransform(self);                       // уже знаем, что это часы
+    } else {
+        CGFloat fs = self.font.pointSize;           // дёшево
+        NSString *t = self.text;
+        if (t.length >= 3 && t.length <= 40) {
+            if (!gClassName && fs >= kMinClockFont && looksLikeTime(t) && !inStatusBar(self)) {
+                trackClock(self);
+                debugLog(self, @"CLOCK", t);
+                applyTransform(self);
+            } else if (gHideDate && gEnabled && fs < kMinClockFont && t.length >= 4
+                       && !looksLikeTime(t) && chainContains(self, @"Date", 8) && !inStatusBar(self)) {
+                [gDateViews addObject:self];
+                debugLog(self, @"DATE?", t);
+                self.hidden = YES;
+            }
+        }
     }
+    busy = NO;
 }
 %end
 
@@ -131,9 +153,8 @@ static void prefsChanged(CFNotificationCenterRef c, void *o, CFStringRef n, cons
 %hook ClockView
 - (void)layoutSubviews {
     %orig;
-    [gClockViews addObject:(UIView *)self];
-    debugLog((UIView *)self, @"CLOCK(class)", @"");
-    applyClock((UIView *)self);
+    trackClock((UIView *)self);
+    applyTransform((UIView *)self);
 }
 %end
 %end
