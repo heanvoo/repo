@@ -1,0 +1,68 @@
+name: Build tweak and publish Sileo repo
+
+on:
+  push:
+    branches: [main, master]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install tools
+        run: brew install ldid dpkg make
+
+      - name: Install Theos
+        run: |
+          git clone --recursive https://github.com/theos/theos.git "$HOME/theos"
+          echo "THEOS=$HOME/theos" >> "$GITHUB_ENV"
+          echo "$(brew --prefix make)/libexec/gnubin" >> "$GITHUB_PATH"
+
+      - name: Build .deb
+        run: make package FINALPACKAGE=1
+
+      - name: Create Sileo repository
+        run: |
+          mkdir -p site/debs
+          cp packages/*.deb site/debs/
+          cd site
+          dpkg-scanpackages -m debs /dev/null > Packages
+          bzip2 -k -f Packages
+          gzip -k -f Packages
+          cat > Release <<'REL'
+          Origin: StretchClock Repo
+          Label: StretchClock Repo
+          Suite: stable
+          Version: 1.0
+          Codename: ios
+          Architectures: iphoneos-arm64
+          Components: main
+          Description: StretchClock tweak repository
+          REL
+          echo "<h1>StretchClock repo</h1><p>Add this URL to Sileo.</p>" > index.html
+
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: site
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4
