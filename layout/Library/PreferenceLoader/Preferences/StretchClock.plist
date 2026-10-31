@@ -1,0 +1,66 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>entry</key>
+  <dict>
+    <key>cell</key><string>PSLinkCell</string>
+    <key>label</key><string>StretchClock</string>
+  </dict>
+  <key>items</key>
+  <array>
+    <dict>
+      <key>cell</key><string>PSGroupCell</string>
+      <key>label</key><string>Часы на экране блокировки</string>
+      <key>footerText</key><string>Изменения применяются сразу. Часы ищутся автоматически. Если не сработало, включите отладку или укажите класс вручную, затем сделайте respring.</string>
+    </dict>
+    <dict>
+      <key>cell</key><string>PSSwitchCell</string>
+      <key>label</key><string>Включить</string>
+      <key>key</key><string>enabled</string>
+      <key>default</key><true/>
+      <key>defaults</key><string>com.stretchclock.tweak</string>
+      <key>PostNotification</key><string>com.stretchclock.tweak/reload</string>
+    </dict>
+    <dict>
+      <key>cell</key><string>PSSliderCell</string>
+      <key>key</key><string>scaleY</string>
+      <key>label</key><string>Растяжение по высоте</string>
+      <key>min</key><real>0.8</real>
+      <key>max</key><real>2.0</real>
+      <key>default</key><real>1.3</real>
+      <key>showValue</key><true/>
+      <key>defaults</key><string>com.stretchclock.tweak</string>
+      <key>PostNotification</key><string>com.stretchclock.tweak/reload</string>
+    </dict>
+    <dict>
+      <key>cell</key><string>PSSliderCell</string>
+      <key>key</key><string>scaleX</string>
+      <key>label</key><string>Растяжение по ширине</string>
+      <key>min</key><real>0.8</real>
+      <key>max</key><real>1.5</real>
+      <key>default</key><real>1.0</real>
+      <key>showValue</key><true/>
+      <key>defaults</key><string>com.stretchclock.tweak</string>
+      <key>PostNotification</key><string>com.stretchclock.tweak/reload</string>
+    </dict>
+    <dict>
+      <key>cell</key><string>PSEditTextCell</string>
+      <key>label</key><string>Класс часов</string>
+      <key>key</key><string>className</string>
+      <key>placeholder</key><string>напр. SBFLockScreenDateView</string>
+      <key>defaults</key><string>com.stretchclock.tweak</string>
+      <key>PostNotification</key><string>com.stretchclock.tweak/reload</string>
+    </dict>
+    <dict>
+      <key>cell</key><string>PSSwitchCell</string>
+      <key>label</key><string>Режим отладки (лог в /var/mobile)</string>
+      <key>key</key><string>debug</string>
+      <key>default</key><false/>
+      <key>defaults</key><string>com.stretchclock.tweak</string>
+      <key>PostNotification</key><string>com.stretchclock.tweak/reload</string>
+    </dict>
+  </array>
+  <key>title</key><string>StretchClock</string>
+</dict>
+</plist>
