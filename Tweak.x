@@ -1,32 +1,36 @@
-// StretchClock — растягивает часы на экране блокировки.
-// Режим 1 (по умолчанию): ищет UILabel с текстом вида "9:41" и растягивает его.
-// Режим 2: если в настройках указан класс часов, хукается он напрямую.
-// Режим отладки пишет найденные классы в /var/mobile/StretchClock.log
+
 
 #import <UIKit/UIKit.h>
 #import <objc/runtime.h>
 
 static NSString *const kDomain = @"com.stretchclock.tweak";
+static const CGFloat kMinClockFont = 30.0; // часы на локскрине крупные, статус-бар ~15pt
 
-static BOOL gEnabled = YES;
-static BOOL gDebug = NO;
-static CGFloat gScaleX = 1.0;
-static CGFloat gScaleY = 1.3;
+static BOOL gEnabled = YES, gDebug = NO, gHideDate = NO;
+static CGFloat gSize = 1.2, gStretchX = 1.0, gStretchY = 1.15, gOffX = 0, gOffY = 0;
 static NSString *gClassName = nil;
+static NSHashTable *gClockViews = nil, *gDateViews = nil;
+static NSMutableSet *gLogged = nil;
+
+static CGFloat prefFloat(NSUserDefaults *d, NSString *k, CGFloat def) {
+    id v = [d objectForKey:k]; return v ? [v doubleValue] : def;
+}
+static BOOL prefBool(NSUserDefaults *d, NSString *k, BOOL def) {
+    id v = [d objectForKey:k]; return v ? [v boolValue] : def;
+}
 
 static void loadPrefs(void) {
     NSUserDefaults *d = [[NSUserDefaults alloc] initWithSuiteName:kDomain];
-    id v;
-    v = [d objectForKey:@"enabled"]; gEnabled = v ? [v boolValue] : YES;
-    v = [d objectForKey:@"debug"];   gDebug   = v ? [v boolValue] : NO;
-    v = [d objectForKey:@"scaleX"];  gScaleX  = v ? [v doubleValue] : 1.0;
-    v = [d objectForKey:@"scaleY"];  gScaleY  = v ? [v doubleValue] : 1.3;
-    v = [d objectForKey:@"className"];
+    gEnabled   = prefBool(d, @"enabled", YES);
+    gDebug     = prefBool(d, @"debug", NO);
+    gHideDate  = prefBool(d, @"hideDate", NO);
+    gSize      = prefFloat(d, @"size", 1.2);
+    gStretchX  = prefFloat(d, @"stretchX", 1.0);
+    gStretchY  = prefFloat(d, @"stretchY", 1.15);
+    gOffX      = prefFloat(d, @"offsetX", 0);
+    gOffY      = prefFloat(d, @"offsetY", 0);
+    id v = [d objectForKey:@"className"];
     gClassName = ([v isKindOfClass:[NSString class]] && [v length]) ? v : nil;
-}
-
-static void prefsChanged(CFNotificationCenterRef c, void *o, CFStringRef n, const void *obj, CFDictionaryRef u) {
-    loadPrefs();
 }
 
 static BOOL looksLikeTime(NSString *s) {
@@ -42,33 +46,83 @@ static BOOL looksLikeTime(NSString *s) {
     return sep;
 }
 
-static void debugLog(UIView *v, NSString *why) {
+static BOOL chainContains(UIView *v, NSString *needle, int depth) {
+    UIView *p = v;
+    for (int i = 0; p && i < depth; i++, p = p.superview)
+        if ([NSStringFromClass(p.class) containsString:needle]) return YES;
+    return NO;
+}
+
+static BOOL inStatusBar(UIView *v) {
+    if (chainContains(v, @"StatusBar", 14)) return YES;
+    if (v.window && [NSStringFromClass(v.window.class) containsString:@"StatusBar"]) return YES;
+    return NO;
+}
+
+static void debugLog(UIView *v, NSString *why, NSString *text) {
     if (!gDebug) return;
-    NSString *line = [NSString stringWithFormat:@"[%@] %@ <%@> superview chain: %@\n",
-        NSProcessInfo.processInfo.processName, why, NSStringFromClass(v.class),
-        ({ NSMutableArray *a = [NSMutableArray array]; UIView *p = v.superview;
-           for (int i = 0; p && i < 6; i++, p = p.superview) [a addObject:NSStringFromClass(p.class)];
-           [a componentsJoinedByString:@" > "]; })];
-    NSLog(@"StretchClock: %@", line);
-    NSFileHandle *h = [NSFileHandle fileHandleForWritingAtPath:@"/var/mobile/StretchClock.log"];
-    if (!h) { [@"" writeToFile:@"/var/mobile/StretchClock.log" atomically:YES encoding:NSUTF8StringEncoding error:nil];
-              h = [NSFileHandle fileHandleForWritingAtPath:@"/var/mobile/StretchClock.log"]; }
+    if (!gLogged) gLogged = [NSMutableSet set];
+    NSString *key = [NSString stringWithFormat:@"%@|%@|%@", why, NSStringFromClass(v.class), text];
+    if ([gLogged containsObject:key]) return;
+    [gLogged addObject:key];
+    NSMutableArray *a = [NSMutableArray array];
+    UIView *p = v.superview;
+    for (int i = 0; p && i < 8; i++, p = p.superview) [a addObject:NSStringFromClass(p.class)];
+    NSString *line = [NSString stringWithFormat:@"[%@] %@ text='%@' <%@> font=%.1f chain: %@\n",
+        NSProcessInfo.processInfo.processName, why, text, NSStringFromClass(v.class),
+        [v isKindOfClass:[UILabel class]] ? ((UILabel *)v).font.pointSize : 0.0,
+        [a componentsJoinedByString:@" > "]];
+    NSString *path = @"/var/mobile/StretchClock.log";
+    NSFileHandle *h = [NSFileHandle fileHandleForWritingAtPath:path];
+    if (!h) { [@"" writeToFile:path atomically:YES encoding:NSUTF8StringEncoding error:nil];
+              h = [NSFileHandle fileHandleForWritingAtPath:path]; }
     [h seekToEndOfFile]; [h writeData:[line dataUsingEncoding:NSUTF8StringEncoding]]; [h closeFile];
 }
 
-static void applyStretch(UIView *v) {
-    CGAffineTransform t = gEnabled ? CGAffineTransformMakeScale(gScaleX, gScaleY) : CGAffineTransformIdentity;
+static void applyClock(UIView *v) {
+    CGFloat sx = 1, sy = 1;
+    CGAffineTransform t = CGAffineTransformIdentity;
+    if (gEnabled) {
+        sx = gSize * gStretchX;
+        sy = gSize * gStretchY;
+        t = CGAffineTransformMake(sx, 0, 0, sy, gOffX, gOffY);
+    }
     if (!CGAffineTransformEqualToTransform(v.transform, t)) v.transform = t;
+    // чтобы увеличенный текст не был мыльным — рендерим с большим разрешением
+    CGFloat target = UIScreen.mainScreen.scale * MAX(1.0, MIN(MAX(sx, sy), 3.0));
+    if (fabs(v.contentScaleFactor - target) > 0.01) v.contentScaleFactor = target;
+    // чтобы родитель не обрезал увеличенные/сдвинутые часы
+    UIView *p = v.superview;
+    for (int i = 0; p && i < 3; i++, p = p.superview) p.clipsToBounds = NO;
+}
+
+static void refreshAll(void) {
+    dispatch_async(dispatch_get_main_queue(), ^{
+        for (UIView *v in gClockViews.allObjects) { applyClock(v); [v setNeedsLayout]; }
+        for (UILabel *l in gDateViews.allObjects) l.hidden = (gEnabled && gHideDate);
+    });
+}
+
+static void prefsChanged(CFNotificationCenterRef c, void *o, CFStringRef n, const void *obj, CFDictionaryRef u) {
+    loadPrefs();
+    refreshAll();
 }
 
 %hook UILabel
 - (void)layoutSubviews {
     %orig;
-    if (gClassName) return; // режим 2 активен
     NSString *t = self.text;
-    if (t && looksLikeTime(t)) {
-        debugLog(self, @"time label");
-        applyStretch(self);
+    if (!t.length || inStatusBar(self)) return;
+    CGFloat fs = self.font.pointSize;
+
+    if (!gClassName && fs >= kMinClockFont && looksLikeTime(t)) {
+        [gClockViews addObject:self];
+        debugLog(self, @"CLOCK", t);
+        applyClock(self);
+    } else if (fs < kMinClockFont && t.length >= 4 && !looksLikeTime(t) && chainContains(self, @"Date", 8)) {
+        [gDateViews addObject:self];
+        debugLog(self, @"DATE?", t);
+        if (gEnabled && gHideDate) self.hidden = YES;
     }
 }
 %end
@@ -77,8 +131,9 @@ static void applyStretch(UIView *v) {
 %hook ClockView
 - (void)layoutSubviews {
     %orig;
-    debugLog((UIView *)self, @"custom class");
-    applyStretch((UIView *)self);
+    [gClockViews addObject:(UIView *)self];
+    debugLog((UIView *)self, @"CLOCK(class)", @"");
+    applyClock((UIView *)self);
 }
 %end
 %end
@@ -87,6 +142,8 @@ static void applyStretch(UIView *v) {
     @autoreleasepool {
         NSString *bid = NSBundle.mainBundle.bundleIdentifier;
         if (![bid isEqualToString:@"com.apple.springboard"] && ![bid isEqualToString:@"com.apple.PosterBoard"]) return;
+        gClockViews = [NSHashTable weakObjectsHashTable];
+        gDateViews  = [NSHashTable weakObjectsHashTable];
         loadPrefs();
         CFNotificationCenterAddObserver(CFNotificationCenterGetDarwinNotifyCenter(), NULL,
             prefsChanged, CFSTR("com.stretchclock.tweak/reload"), NULL,
