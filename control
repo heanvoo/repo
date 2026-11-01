@@ -1,6 +1,6 @@
 Package: com.stretchclock.tweak
 Name: StretchClock
-Version: 0.6.0
+Version: 0.7.0
 Architecture: iphoneos-arm64
 Description: Растяжение часов на экране блокировки (в стиле iOS 26) с настройками
 Maintainer: StretchClock
