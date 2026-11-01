@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Heanvoo's Repo</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      background: #0f0f13;
+      color: #e8e8ed;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 40px 20px;
+    }
+
+    .header {
+      text-align: center;
+      margin-bottom: 48px;
+    }
+
+    .header h1 {
+      font-size: 2.4rem;
+      font-weight: 700;
+      letter-spacing: -0.5px;
+      background: linear-gradient(135deg, #a78bfa, #60a5fa, #34d399);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    .header p {
+      margin-top: 8px;
+      color: #8b8b99;
+      font-size: 0.95rem;
+    }
+
+    .repo-list {
+      width: 100%;
+      max-width: 520px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    .repo-item {
+      background: #1a1a23;
+      border: 1px solid #2a2a35;
+      border-radius: 14px;
+      padding: 18px 20px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      transition: border-color 0.2s, transform 0.15s, box-shadow 0.2s;
+    }
+
+    .repo-item:hover {
+      border-color: #3d3d4d;
+      transform: translateY(-2px);
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+    }
+
+    .repo-info {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      min-width: 0;
+    }
+
+    .repo-name {
+      font-weight: 600;
+      font-size: 1.05rem;
+    }
+
+    .repo-url {
+      font-size: 0.8rem;
+      color: #6b6b7b;
+      word-break: break-all;
+    }
+
+    .repo-actions {
+      display: flex;
+      gap: 8px;
+      flex-shrink: 0;
+    }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      padding: 8px 14px;
+      border-radius: 8px;
+      font-size: 0.82rem;
+      font-weight: 600;
+      text-decoration: none;
+      color: #fff;
+      border: none;
+      cursor: pointer;
+      transition: filter 0.2s, transform 0.1s;
+      white-space: nowrap;
+    }
+
+    .btn:active {
+      transform: scale(0.96);
+    }
+
+    .btn:hover {
+      filter: brightness(1.15);
+    }
+
+    .btn-sileo { background: #6366f1; }
+    .btn-cydia { background: #f59e0b; }
+    .btn-zebra { background: #10b981; }
+
+    .footer {
+      margin-top: 56px;
+      color: #4a4a58;
+      font-size: 0.8rem;
+      text-align: center;
+    }
+
+    @media (max-width: 480px) {
+      .repo-item {
+        flex-direction: column;
+        align-items: flex-start;
+      }
+      .repo-actions {
+        width: 100%;
+      }
+      .btn {
+        flex: 1;
+        justify-content: center;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <div class="header">
+    <h1>Heanvoo's Repo</h1>
+    <p>Add repo to ur package manager</p>
+  </div>
+
+  <div class="repo-list">
+
+    <!-- Карточка 1 -->
+    <div class="repo-item">
+      <div class="repo-info">
+        <span class="repo-name">Heanvoo's Repo</span>
+        <span class="repo-url">https://heanvoo.github.io/repo</span>
+      </div>
+      <div class="repo-actions">
+        <a class="btn btn-sileo" href="sileo://source/https://heanvoo.github.io/repo">Sileo</a>
+        <a class="btn btn-cydia" href="cydia://url/https://cydia.saurik.com/api/share#?source=https://heanvoo.github.io/repo">Cydia</a>
+        <a class="btn btn-zebra" href="zbra://sources/add/https://heanvoo.github.io/repo">Zebra</a>
+      </div>
+    </div>
+
+  </div>
+
+  <div class="footer">
+    © 2026 Heanvoo
+  </div>
+
+</body>
+</html>
