@@ -1,5 +1,5 @@
-// VibeSnow - animated snowfall overlay for SpringBoard (rootless, iOS 15+).
-// One passthrough UIWindow above everything + a CAEmitterLayer. No private frameworks.
+// SnowOverlay - animated snowfall overlay for SpringBoard (rootless, iOS 15+).
+// Plain full-screen secure UIWindow (like Snoverlay) + CAEmitterLayer in a plain UIView.
 
 #import <UIKit/UIKit.h>
 #import <QuartzCore/QuartzCore.h>
@@ -12,15 +12,18 @@
 - (id)_accessibilityFrontMostApplication;
 @end
 
-// Window that never catches touches and never becomes key.
+// Never catches touches, never becomes key, renders in its own secure context.
 @interface VSPassWindow : UIWindow
 @end
 @implementation VSPassWindow
 - (UIView *)hitTest:(CGPoint)point withEvent:(UIEvent *)event { return nil; }
 - (BOOL)canBecomeKeyWindow { return NO; }
+- (BOOL)_isSecure { return YES; }
+- (BOOL)_shouldCreateContextAsSecure { return YES; }
 @end
 
 static VSPassWindow *gWindow;
+static UIView *gHost;
 static CAEmitterLayer *gEmitter;
 static NSTimer *gTimer;
 static int gNotifyToken;
@@ -85,7 +88,8 @@ static void configureEmitter(void) {
     CGRect b = UIScreen.mainScreen.bounds;
     CGFloat w = b.size.width, h = b.size.height;
 
-    gEmitter.frame = b;
+    gEmitter.frame = CGRectMake(0, 0, w, h);
+    gEmitter.masksToBounds = NO;
     gEmitter.emitterShape = kCAEmitterLayerLine;
     gEmitter.emitterPosition = CGPointMake(w / 2, -20);
     gEmitter.emitterSize = CGSizeMake(w * 1.3, 1);
@@ -96,7 +100,7 @@ static void configureEmitter(void) {
     c.contents = (__bridge id)flakeImage().CGImage;
     c.contentsScale = UIScreen.mainScreen.scale;
     c.birthRate = (float)(gAmount * 0.3);
-    c.lifetime = (float)((h + 60.0) / (vel * 0.6)); // slowest flake still reaches the bottom
+    c.lifetime = (float)((h + 80.0) / (vel * 0.5)); // slowest flake still reaches the bottom
     c.velocity = vel;
     c.velocityRange = vel * 0.4;
     c.emissionLongitude = M_PI_2;   // straight down
@@ -113,42 +117,24 @@ static void configureEmitter(void) {
     gEmitter.emitterCells = @[c];
 }
 
-static UIWindowScene *pickScene(void) {
-    CGSize full = UIScreen.mainScreen.bounds.size;
-    UIWindowScene *best = nil;
-    for (UIScene *s in UIApplication.sharedApplication.connectedScenes) {
-        if (![s isKindOfClass:UIWindowScene.class]) continue;
-        UIWindowScene *ws = (UIWindowScene *)s;
-        CGSize cs = ws.coordinateSpace.bounds.size;
-        // skip status-bar-sized and other partial scenes
-        if (fabs(cs.width - full.width) > 1 || fabs(cs.height - full.height) > 1) continue;
-        best = ws;
-        if (ws.activationState == UISceneActivationStateForegroundActive) break;
-    }
-    return best;
-}
-
 static void ensureWindow(void) {
     if (gWindow) return;
     CGRect b = UIScreen.mainScreen.bounds;
 
-    UIWindowScene *scene = pickScene();
-    gWindow = scene ? [[VSPassWindow alloc] initWithWindowScene:scene]
-                    : [[VSPassWindow alloc] initWithFrame:b];
-    gWindow.frame = b;
-    gWindow.windowLevel = UIWindowLevelAlert + 1000;
+    // Same recipe as the original Snoverlay: no scene, full-screen frame, huge level.
+    gWindow = [[VSPassWindow alloc] initWithFrame:b];
+    gWindow.windowLevel = 100000.0;
     gWindow.backgroundColor = UIColor.clearColor;
     gWindow.userInteractionEnabled = NO;
 
-    UIViewController *vc = [UIViewController new];
-    vc.view.backgroundColor = UIColor.clearColor;
-    vc.view.userInteractionEnabled = NO;
-    vc.view.clipsToBounds = NO;
-    gWindow.rootViewController = vc;
+    gHost = [[UIView alloc] initWithFrame:b];
+    gHost.backgroundColor = UIColor.clearColor;
+    gHost.userInteractionEnabled = NO;
+    gHost.clipsToBounds = NO;
+    [gWindow addSubview:gHost];
 
     gEmitter = [CAEmitterLayer layer];
-    gEmitter.masksToBounds = NO;
-    [vc.view.layer addSublayer:gEmitter];
+    [gHost.layer addSublayer:gEmitter];
 }
 
 static void checkFrontmost(void) {
