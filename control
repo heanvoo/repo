@@ -7,3 +7,4 @@ Maintainer: StretchClock
 Author: Heanvoo
 Section: Tweaks
 Depends: mobilesubstrate, preferenceloader
+Icon: https://heanvoo.github.io/repo/clock.png
