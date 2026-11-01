@@ -1,9 +1,9 @@
 Package: com.stretchclock.tweak
 Name: StretchClock
-Version: 0.8.1
+Version: 1.0.0
 Architecture: iphoneos-arm64
 Description: Resize, stretch and move the Lock Screen clock (iOS 26 style) with a settings page
 Maintainer: StretchClock
-Author: StretchClock
+Author: Heanvoo
 Section: Tweaks
 Depends: mobilesubstrate, preferenceloader
