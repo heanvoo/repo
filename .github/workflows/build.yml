@@ -32,6 +32,14 @@ jobs:
       - name: Build .deb
         run: make package FINALPACKAGE=1
 
+      - name: Fetch fastfetch .deb
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p site/debs
+          TAG=$(gh release list --limit 50 --json tagName \
+            --jq '[.[] | select(.tagName | startswith("fastfetch-"))][0].tagName')
+          [ -n "$TAG" ] && gh release download "$TAG" --pattern '*.deb' --dir site/debs || echo "no fastfetch release yet"
       - name: Create Sileo repository
         run: |
           mkdir -p site/debs
