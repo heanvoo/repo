@@ -1,8 +1,8 @@
 Package: com.stretchclock.tweak
 Name: StretchClock
-Version: 0.8.0
+Version: 0.8.1
 Architecture: iphoneos-arm64
-Description: Растяжение часов на экране блокировки (в стиле iOS 26) с настройками
+Description: Resize, stretch and move the Lock Screen clock (iOS 26 style) with a settings page
 Maintainer: StretchClock
 Author: StretchClock
 Section: Tweaks

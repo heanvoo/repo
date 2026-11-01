@@ -1,9 +1,9 @@
-// StretchClock 0.8.0 — «свои цифры» вместо деформации системных.
-// Системная надпись с временем больше НЕ рисует текст (drawTextInRect пропускается),
-// а внутри неё (как подвид) добавляется наш UILabel с тем же текстом, но с нашим шрифтом:
-// размер, растяжение по X/Y (матрица шрифта) и сдвиг. Мы не трогаем ни layout, ни transform,
-// ни bounds системной надписи -> система не может это сбросить, нет циклов раскладки.
-// Дата: надпись с сегодняшней датой перестаёт рисоваться.
+// StretchClock 0.8.1 — draws its own digits instead of deforming the system ones.
+// The system time label no longer draws its text (drawTextInRect is skipped); instead our own
+// UILabel is added inside it as a subview with the same text but our font: size, X/Y stretch
+// (font matrix) and offset. We never touch the system label's layout, transform or bounds, so
+// the system cannot reset our changes and there are no layout loops.
+// Date: the label that matches today's date simply stops drawing.
 
 #import <UIKit/UIKit.h>
 #import <objc/runtime.h>
@@ -16,12 +16,12 @@ static BOOL gEnabled = YES, gHideDate = NO, gDebug = NO, gBroken = NO;
 static CGFloat gSize = 1.2, gSX = 1.0, gSY = 1.0, gOX = 0, gOY = 0;
 static NSHashTable *gClocks = nil, *gDates = nil;
 
-static const void *kOvKey = &kOvKey;          // на системной надписи: наш оверлей
-static const void *kIsOverlayKey = &kIsOverlayKey; // на оверлее: пометка
-static const void *kSigKey = &kSigKey;        // на оверлее: подпись шрифта
-static const void *kFontKey = &kFontKey;      // на оверлее: кэш шрифта
+static const void *kOvKey = &kOvKey;          // on the system label: our overlay
+static const void *kIsOverlayKey = &kIsOverlayKey; // on the overlay: marker
+static const void *kSigKey = &kSigKey;        // on the overlay: font signature
+static const void *kFontKey = &kFontKey;      // on the overlay: cached font
 
-#pragma mark - Настройки
+#pragma mark - Preferences
 
 static id readPref(NSString *key) {
     return CFBridgingRelease(CFPreferencesCopyAppValue((__bridge CFStringRef)key,
@@ -42,7 +42,7 @@ static void loadPrefs(void) {
     gBroken = NO;
 }
 
-#pragma mark - Помощники
+#pragma mark - Helpers
 
 static UIFont *currentFont(UILabel *l) {
     if (l.attributedText.length > 0) {
@@ -80,7 +80,7 @@ static BOOL isLargeLabel(UILabel *l) {
     return currentFont(l).pointSize >= kMinClockFont || l.bounds.size.height >= 45.0;
 }
 
-#pragma mark - Дата
+#pragma mark - Date
 
 static NSString *normalizeText(NSString *s) {
     NSMutableString *o = [NSMutableString string];
@@ -124,7 +124,7 @@ static BOOL looksLikeDate(NSString *t) {
     return NO;
 }
 
-#pragma mark - Журнал отладки
+#pragma mark - Debug log
 
 static void logAppend(NSString *s) {
     NSFileHandle *h = [NSFileHandle fileHandleForWritingAtPath:kLogPath];
@@ -161,14 +161,14 @@ static void dumpAround(UIView *label) {
     logAppend(out);
 }
 
-#pragma mark - Наш оверлей
+#pragma mark - Our overlay
 
 static BOOL syncBudgetOK(void) {
     static CFAbsoluteTime start = 0;
     static int count = 0;
     CFAbsoluteTime now = CFAbsoluteTimeGetCurrent();
     if (now - start > 1.0) { start = now; count = 0; }
-    if (++count > 80) { gBroken = YES; return NO; }   // аварийный выключатель
+    if (++count > 80) { gBroken = YES; return NO; }   // emergency kill switch
     return YES;
 }
 
@@ -227,7 +227,7 @@ static void syncOverlay(UILabel *l) {
         if (c && ![ov.textColor isEqual:c]) ov.textColor = c;
     }
 
-    // Границы оверлея задаём сами и с запасом — обрезки нет, система их не трогает.
+    // We set the overlay bounds ourselves with generous padding: no clipping, and the system never touches them.
     CGSize bs = [txt sizeWithAttributes:@{NSFontAttributeName: base}];
     CGFloat w = ceil(bs.width * gSize * gSX * 1.2) + 24.0;
     CGFloat h = ceil(base.lineHeight * gSize * gSY * 1.3) + 12.0;
@@ -251,7 +251,7 @@ static void syncOverlay(UILabel *l) {
     if (!CGAffineTransformEqualToTransform(ov.transform, tr)) ov.transform = tr;
 }
 
-// Снять обрезку у самой надписи и контейнеров (кроме полноэкранных). Только вне раскладки.
+// Disable clipping on the label and its containers (except full-screen ones). Never called from layout.
 static void unclipChain(UIView *v) {
     CGSize scr = UIScreen.mainScreen.bounds.size;
     UIView *p = v;
@@ -277,7 +277,7 @@ static void prefsChanged(CFNotificationCenterRef c, void *o, CFStringRef n, cons
     dispatch_async(dispatch_get_main_queue(), ^{
         for (UILabel *l in gClocks.allObjects) {
             syncOverlay(l);
-            [l setNeedsDisplay];       // перерисовать (показать/скрыть собственный текст надписи)
+            [l setNeedsDisplay];       // redraw (show/hide the label's own text)
             unclipChain(l);
             dumpAround(l);
         }
@@ -291,11 +291,11 @@ static void prefsChanged(CFNotificationCenterRef c, void *o, CFStringRef n, cons
     });
 }
 
-#pragma mark - Хуки
+#pragma mark - Hooks
 
 %hook UILabel
 
-// Системные часы/дата не рисуют свой текст — его рисует наш оверлей / он скрыт.
+// The system clock/date labels don't draw their own text: our overlay draws it / it is hidden.
 - (void)drawTextInRect:(CGRect)rect {
     if (gEnabled && !gBroken) {
         if ([gClocks containsObject:self]) return;
@@ -318,7 +318,7 @@ static void prefsChanged(CFNotificationCenterRef c, void *o, CFStringRef n, cons
 
 - (void)layoutSubviews {
     %orig;
-    if (objc_getAssociatedObject(self, kIsOverlayKey)) return;       // наш оверлей не трогаем
+    if (objc_getAssociatedObject(self, kIsOverlayKey)) return;       // leave our overlay alone
     if ([gClocks containsObject:self]) { syncOverlay(self); return; }
     if ([gDates containsObject:self]) return;
 
