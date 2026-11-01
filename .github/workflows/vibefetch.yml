@@ -1,0 +1,61 @@
+name: vibefetch
+
+on:
+  push:
+    branches: [main, master]
+    paths:
+      - "vibefetch/**"
+      - ".github/workflows/vibefetch.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  actions: write
+
+jobs:
+  build:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install tools
+        run: brew install ldid dpkg
+
+      - name: Build + package .deb (rootless)
+        id: pkg
+        run: |
+          set -e
+          VER=$(sed -n 's/^#define VERSION "\(.*\)"/\1/p' vibefetch/vibefetch.c)
+          echo "ver=$VER" >> "$GITHUB_OUTPUT"
+          SDK=$(xcrun --sdk iphoneos --show-sdk-path)
+          mkdir -p pkg/var/jb/usr/bin pkg/DEBIAN out
+          clang -isysroot "$SDK" -arch arm64 -miphoneos-version-min=15.0 \
+            -O2 -Wall vibefetch/vibefetch.c -o pkg/var/jb/usr/bin/vibefetch
+          ldid -S pkg/var/jb/usr/bin/vibefetch
+          printf '%s\n' \
+            "Package: com.heanvoo.vibefetch" \
+            "Name: vibefetch" \
+            "Version: $VER" \
+            "Architecture: iphoneos-arm64" \
+            "Description: Tiny neofetch-style system info for NewTerm (vibecoded)" \
+            "Maintainer: Heanvoo" \
+            "Author: Heanvoo" \
+            "Section: Terminal_Support" \
+            "Icon: https://heanvoo.github.io/repo/RepoIcon.png" \
+            > pkg/DEBIAN/control
+          dpkg-deb -Zgzip --root-owner-group -b pkg "out/com.heanvoo.vibefetch_${VER}_iphoneos-arm64.deb"
+          ls -la out
+
+      - name: Publish release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          VER="${{ steps.pkg.outputs.ver }}"
+          gh release delete "vibefetch-$VER" -y --cleanup-tag 2>/dev/null || true
+          gh release create "vibefetch-$VER" out/*.deb \
+            --title "vibefetch $VER" --notes "Rootless build for NewTerm 3 Beta"
+
+      - name: Republish Sileo repo
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh workflow run build.yml --ref "${{ github.event.repository.default_branch }}"
