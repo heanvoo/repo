@@ -277,7 +277,10 @@ static void prefsChanged(CFNotificationCenterRef c, void *o, CFStringRef n, cons
         for (UILabel *l in gClocks.allObjects) { applyTo(l); dumpAround(l); }
         for (UILabel *l in gDates.allObjects) setDateHidden(l, gEnabled && gHideDate);
         if (gEnabled && gHideDate) {
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
             for (UIWindow *w in UIApplication.sharedApplication.windows) relayoutLabels(w, 0);
+#pragma clang diagnostic pop
         }
     });
 }
