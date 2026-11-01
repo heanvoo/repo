@@ -36,8 +36,8 @@ jobs:
         run: |
           mkdir -p site/debs
           cp packages/*.deb site/debs/
-          cp repologo.png site/CydiaIcon.png
-          cp repologo.png site/RepoIcon.png
+          cp CydiaIcon.png site/CydiaIcon.png
+          cp RepoIcon.png site/RepoIcon.png
           cd site
           dpkg-scanpackages -m debs /dev/null > Packages
           bzip2 -k -f Packages
