@@ -17,6 +17,7 @@ concurrency:
 jobs:
   build:
     runs-on: macos-latest
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
 
@@ -29,8 +30,11 @@ jobs:
           echo "THEOS=$HOME/theos" >> "$GITHUB_ENV"
           echo "$(brew --prefix make)/libexec/gnubin" >> "$GITHUB_PATH"
 
-      - name: Build .deb
+      - name: Build StretchClock .deb
         run: make package FINALPACKAGE=1
+
+      - name: Build VibeSnow .deb
+        run: make -C VibeSnow package FINALPACKAGE=1
 
       - name: Add third-party debs
         run: |
@@ -50,6 +54,7 @@ jobs:
         run: |
           mkdir -p site/debs
           cp packages/*.deb site/debs/
+          cp VibeSnow/packages/*.deb site/debs/
           cp CydiaIcon.png site/CydiaIcon.png
           cp RepoIcon.png site/RepoIcon.png
           cp index.html site/index.html
@@ -65,7 +70,7 @@ jobs:
           Codename: ios
           Architectures: iphoneos-arm64
           Components: main
-          Description: StretchClock tweak repository
+          Description: Heanvoo's tweaks repository
           REL
 
       - uses: actions/configure-pages@v5
