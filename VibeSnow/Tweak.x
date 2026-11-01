@@ -1,5 +1,5 @@
 // SnowOverlay - animated snowfall overlay for SpringBoard (rootless, iOS 15+).
-// Plain full-screen secure UIWindow (like Snoverlay) + CAEmitterLayer in a plain UIView.
+// One passthrough window per full-size UIWindowScene + CAEmitterLayer. Logs to /var/mobile/vibesnow.log.
 
 #import <UIKit/UIKit.h>
 #import <QuartzCore/QuartzCore.h>
@@ -7,24 +7,21 @@
 
 #define PREFS_ID CFSTR("com.heanvoo.overlaysnow")
 #define RELOAD_NOTE "com.heanvoo.overlaysnow/reload"
+#define LOG_PATH @"/var/mobile/vibesnow.log"
 
 @interface SpringBoard : UIApplication
 - (id)_accessibilityFrontMostApplication;
 @end
 
-// Never catches touches, never becomes key, renders in its own secure context.
 @interface VSPassWindow : UIWindow
 @end
 @implementation VSPassWindow
 - (UIView *)hitTest:(CGPoint)point withEvent:(UIEvent *)event { return nil; }
 - (BOOL)canBecomeKeyWindow { return NO; }
-- (BOOL)_isSecure { return YES; }
-- (BOOL)_shouldCreateContextAsSecure { return YES; }
 @end
 
-static VSPassWindow *gWindow;
-static UIView *gHost;
-static CAEmitterLayer *gEmitter;
+static NSMutableArray<VSPassWindow *> *gWindows;
+static NSMutableArray<CAEmitterLayer *> *gEmitters;
 static NSTimer *gTimer;
 static int gNotifyToken;
 
@@ -34,6 +31,24 @@ static double gAmount = 40.0; // 5...100
 static double gSpeed = 1.0;   // 0.3...3
 static double gSize = 1.0;    // 0.4...2
 static int gColor = 0;        // 0 white, 1 blue
+
+#pragma mark - Log
+
+static void vlog(NSString *fmt, ...) NS_FORMAT_FUNCTION(1, 2);
+static void vlog(NSString *fmt, ...) {
+    va_list ap;
+    va_start(ap, fmt);
+    NSString *msg = [[NSString alloc] initWithFormat:fmt arguments:ap];
+    va_end(ap);
+    NSFileManager *fm = NSFileManager.defaultManager;
+    NSDictionary *attrs = [fm attributesOfItemAtPath:LOG_PATH error:nil];
+    if ([attrs fileSize] > 65536) [fm removeItemAtPath:LOG_PATH error:nil];
+    if (![fm fileExistsAtPath:LOG_PATH]) [fm createFileAtPath:LOG_PATH contents:nil attributes:nil];
+    NSFileHandle *h = [NSFileHandle fileHandleForWritingAtPath:LOG_PATH];
+    [h seekToEndOfFile];
+    [h writeData:[[msg stringByAppendingString:@"\n"] dataUsingEncoding:NSUTF8StringEncoding]];
+    [h closeFile];
+}
 
 #pragma mark - Prefs
 
@@ -84,28 +99,28 @@ static UIImage *flakeImage(void) {
     }];
 }
 
-static void configureEmitter(void) {
+static void configureEmitter(CAEmitterLayer *e) {
     CGRect b = UIScreen.mainScreen.bounds;
     CGFloat w = b.size.width, h = b.size.height;
 
-    gEmitter.frame = CGRectMake(0, 0, w, h);
-    gEmitter.masksToBounds = NO;
-    gEmitter.emitterShape = kCAEmitterLayerLine;
-    gEmitter.emitterPosition = CGPointMake(w / 2, -20);
-    gEmitter.emitterSize = CGSizeMake(w * 1.3, 1);
-    gEmitter.renderMode = kCAEmitterLayerUnordered;
+    e.frame = CGRectMake(0, 0, w, h);
+    e.masksToBounds = NO;
+    e.emitterShape = kCAEmitterLayerLine;
+    e.emitterPosition = CGPointMake(w / 2, -20);
+    e.emitterSize = CGSizeMake(w * 1.3, 1);
+    e.renderMode = kCAEmitterLayerUnordered;
 
     double vel = 70.0 * gSpeed;
     CAEmitterCell *c = [CAEmitterCell emitterCell];
     c.contents = (__bridge id)flakeImage().CGImage;
     c.contentsScale = UIScreen.mainScreen.scale;
     c.birthRate = (float)(gAmount * 0.3);
-    c.lifetime = (float)((h + 80.0) / (vel * 0.5)); // slowest flake still reaches the bottom
+    c.lifetime = (float)((h + 80.0) / (vel * 0.5));
     c.velocity = vel;
     c.velocityRange = vel * 0.4;
     c.emissionLongitude = M_PI_2;   // straight down
-    c.emissionRange = M_PI / 10.0;  // slight spread
-    c.xAcceleration = 6.0;          // gentle wind drift
+    c.emissionRange = M_PI / 10.0;
+    c.xAcceleration = 6.0;
     c.scale = 0.35 * gSize;
     c.scaleRange = 0.25 * gSize;
     c.alphaRange = 0.4;
@@ -114,33 +129,64 @@ static void configureEmitter(void) {
                                : [UIColor colorWithWhite:1.0 alpha:0.95];
     c.color = col.CGColor;
 
-    gEmitter.emitterCells = @[c];
+    e.emitterCells = @[c];
 }
 
-static void ensureWindow(void) {
-    if (gWindow) return;
+static void addWindow(UIWindowScene *scene) {
     CGRect b = UIScreen.mainScreen.bounds;
+    VSPassWindow *w = scene ? [[VSPassWindow alloc] initWithWindowScene:scene]
+                            : [[VSPassWindow alloc] initWithFrame:b];
+    w.frame = b;
+    w.windowLevel = UIWindowLevelAlert + 1000;
+    w.backgroundColor = UIColor.clearColor;
+    w.userInteractionEnabled = NO;
 
-    // Same recipe as the original Snoverlay: no scene, full-screen frame, huge level.
-    gWindow = [[VSPassWindow alloc] initWithFrame:b];
-    gWindow.windowLevel = 100000.0;
-    gWindow.backgroundColor = UIColor.clearColor;
-    gWindow.userInteractionEnabled = NO;
+    UIView *host = [[UIView alloc] initWithFrame:b];
+    host.backgroundColor = UIColor.clearColor;
+    host.userInteractionEnabled = NO;
+    host.clipsToBounds = NO;
+    [w addSubview:host];
 
-    gHost = [[UIView alloc] initWithFrame:b];
-    gHost.backgroundColor = UIColor.clearColor;
-    gHost.userInteractionEnabled = NO;
-    gHost.clipsToBounds = NO;
-    [gWindow addSubview:gHost];
+    CAEmitterLayer *e = [CAEmitterLayer layer];
+    [host.layer addSublayer:e];
 
-    gEmitter = [CAEmitterLayer layer];
-    [gHost.layer addSublayer:gEmitter];
+    [gWindows addObject:w];
+    [gEmitters addObject:e];
+    vlog(@"added window for scene %@", scene ? scene.session.persistentIdentifier : @"(none)");
+}
+
+// One window per full-size window scene (partial scenes such as the status bar are skipped).
+static void syncWindows(void) {
+    if (!gWindows) { gWindows = [NSMutableArray new]; gEmitters = [NSMutableArray new]; }
+    CGSize full = UIScreen.mainScreen.bounds.size;
+    BOOL anyFull = NO;
+
+    for (UIScene *s in UIApplication.sharedApplication.connectedScenes) {
+        if (![s isKindOfClass:UIWindowScene.class]) continue;
+        UIWindowScene *ws = (UIWindowScene *)s;
+        CGSize cs = ws.coordinateSpace.bounds.size;
+        vlog(@"scene %@ class=%@ role=%@ size=%.0fx%.0f windows=%lu state=%ld",
+             ws.session.persistentIdentifier, NSStringFromClass(ws.class), ws.session.role,
+             cs.width, cs.height, (unsigned long)ws.windows.count, (long)ws.activationState);
+        if (fabs(cs.width - full.width) > 1 || fabs(cs.height - full.height) > 1) continue;
+        anyFull = YES;
+        BOOL covered = NO;
+        for (VSPassWindow *w in gWindows) if (w.windowScene == ws) { covered = YES; break; }
+        if (!covered) addWindow(ws);
+    }
+    if (!anyFull && gWindows.count == 0) {
+        vlog(@"no full-size scene, using scene-less window");
+        addWindow(nil);
+    }
+}
+
+static void setAllHidden(BOOL hidden) {
+    for (VSPassWindow *w in gWindows) w.hidden = hidden;
 }
 
 static void checkFrontmost(void) {
-    if (!gWindow) return;
     id app = [(SpringBoard *)UIApplication.sharedApplication _accessibilityFrontMostApplication];
-    gWindow.hidden = (app != nil); // an app is open -> hide, Home/Lock -> show
+    setAllHidden(app != nil); // an app is open -> hide, Home/Lock -> show
 }
 
 static void refresh(void) {
@@ -150,20 +196,26 @@ static void refresh(void) {
     gTimer = nil;
 
     if (!gEnabled) {
-        gWindow.hidden = YES;
-        gEmitter.birthRate = 0;
+        setAllHidden(YES);
+        for (CAEmitterLayer *e in gEmitters) e.birthRate = 0;
         return;
     }
 
-    ensureWindow();
-    configureEmitter();
-    gEmitter.birthRate = 1;
-    gWindow.hidden = NO;
+    syncWindows();
+    for (CAEmitterLayer *e in gEmitters) { configureEmitter(e); e.birthRate = 1; }
+    setAllHidden(NO);
 
     if (!gInApps) {
         checkFrontmost();
         gTimer = [NSTimer scheduledTimerWithTimeInterval:0.6 repeats:YES block:^(NSTimer *t) { checkFrontmost(); }];
     }
+
+    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(1 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+        for (VSPassWindow *w in gWindows)
+            vlog(@"window frame=%@ hidden=%d level=%.0f scene=%@",
+                 NSStringFromCGRect(w.frame), w.hidden, w.windowLevel,
+                 w.windowScene ? w.windowScene.session.persistentIdentifier : @"(none)");
+    });
 }
 
 #pragma mark - Hook
@@ -172,8 +224,14 @@ static void refresh(void) {
 - (void)applicationDidFinishLaunching:(id)application {
     %orig;
     dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(2 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+        vlog(@"=== SnowOverlay start, iOS %@ ===", UIDevice.currentDevice.systemVersion);
         refresh();
         notify_register_dispatch(RELOAD_NOTE, &gNotifyToken, dispatch_get_main_queue(), ^(int token) { refresh(); });
+        // Lock screen / other scenes may connect later.
+        [NSNotificationCenter.defaultCenter addObserverForName:UISceneWillConnectNotification object:nil
+            queue:NSOperationQueue.mainQueue usingBlock:^(NSNotification *n) {
+                dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(0.5 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{ refresh(); });
+            }];
     });
 }
 %end
