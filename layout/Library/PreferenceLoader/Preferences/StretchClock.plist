@@ -33,18 +33,18 @@
     <dict>
       <key>cell</key><string>PSGroupCell</string>
       <key>label</key><string>Режим</string>
-      <key>footerText</key><string>ВКЛ: меняется сам шрифт часов (чётко, как в iOS 26). ВЫКЛ: запасной режим, часы растягиваются как картинка. Если часы выглядят странно или не меняются, выключите.</string>
+      <key>footerText</key><string>ВКЛ: меняется сам шрифт часов (чётко, как в iOS 26). ВЫКЛ: запасной режим, часы растягиваются как картинка.</string>
     </dict>
     <dict>
       <key>cell</key><string>PSGroupCell</string>
       <key>label</key><string>РАЗМЕР ЧАСОВ</string>
-      <key>footerText</key><string>От 0.5 (меньше) до 2.5 (крупнее). 1.0 = как в системе. Меняет высоту и ширину цифр вместе.</string>
+      <key>footerText</key><string>От 0.5 (меньше) до 3.0 (крупнее). 1.0 = как в системе. Меняет высоту и ширину цифр вместе.</string>
     </dict>
     <dict>
       <key>cell</key><string>PSSliderCell</string>
       <key>key</key><string>size</string>
       <key>min</key><real>0.5</real>
-      <key>max</key><real>2.5</real>
+      <key>max</key><real>3.0</real>
       <key>default</key><real>1.2</real>
       <key>showValue</key><true/>
       <key>isContinuous</key><false/>
@@ -60,7 +60,7 @@
       <key>cell</key><string>PSSliderCell</string>
       <key>key</key><string>stretchX</string>
       <key>min</key><real>0.6</real>
-      <key>max</key><real>1.8</real>
+      <key>max</key><real>2.0</real>
       <key>default</key><real>1.0</real>
       <key>showValue</key><true/>
       <key>isContinuous</key><false/>
@@ -76,7 +76,7 @@
       <key>cell</key><string>PSSliderCell</string>
       <key>key</key><string>stretchY</string>
       <key>min</key><real>0.6</real>
-      <key>max</key><real>2.2</real>
+      <key>max</key><real>2.5</real>
       <key>default</key><real>1.0</real>
       <key>showValue</key><true/>
       <key>isContinuous</key><false/>
@@ -118,12 +118,25 @@
     <dict>
       <key>cell</key><string>PSGroupCell</string>
       <key>label</key><string>Дата</string>
-      <key>footerText</key><string>Попытка скрыть дату над часами. Не гарантирована: зависит от версии iOS.</string>
+      <key>footerText</key><string>Скрывает надпись с сегодняшней датой над часами.</string>
     </dict>
     <dict>
       <key>cell</key><string>PSSwitchCell</string>
       <key>label</key><string>Скрыть дату</string>
       <key>key</key><string>hideDate</string>
+      <key>default</key><false/>
+      <key>defaults</key><string>com.stretchclock.tweak</string>
+      <key>PostNotification</key><string>com.stretchclock.tweak/reload</string>
+    </dict>
+    <dict>
+      <key>cell</key><string>PSGroupCell</string>
+      <key>label</key><string>Отладка</string>
+      <key>footerText</key><string>Пишет структуру экрана блокировки в файл /var/mobile/StretchClock.log. Включите, если сдвиг или скрытие даты не работают, и пришлите файл разработчику.</string>
+    </dict>
+    <dict>
+      <key>cell</key><string>PSSwitchCell</string>
+      <key>label</key><string>Режим отладки</string>
+      <key>key</key><string>debug</string>
       <key>default</key><false/>
       <key>defaults</key><string>com.stretchclock.tweak</string>
       <key>PostNotification</key><string>com.stretchclock.tweak/reload</string>
