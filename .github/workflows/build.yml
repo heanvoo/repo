@@ -32,7 +32,7 @@ jobs:
       - name: Build .deb
         run: make package FINALPACKAGE=1
 
-      - name: Fetch vibefetch .deb
+      - name: Fetch vibefetch.deb
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
