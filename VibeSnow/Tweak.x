@@ -118,7 +118,7 @@ static void configureEmitter(CAEmitterLayer *e) {
     c.lifetime = (float)((h + 80.0) / (vel * 0.5));
     c.velocity = vel;
     c.velocityRange = vel * 0.4;
-    c.emissionLongitude = M_PI_2;   // straight down
+    c.emissionLongitude = M_PI;     // straight down (CAEmitterLayer on iOS)   // шstraight down
     c.emissionRange = M_PI / 10.0;
     c.xAcceleration = 6.0;
     c.scale = 0.35 * gSize;
