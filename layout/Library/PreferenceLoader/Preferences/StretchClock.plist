@@ -23,22 +23,9 @@
       <key>PostNotification</key><string>com.stretchclock.tweak/reload</string>
     </dict>
     <dict>
-      <key>cell</key><string>PSSwitchCell</string>
-      <key>label</key><string>Реальный размер шрифта</string>
-      <key>key</key><string>realFont</string>
-      <key>default</key><true/>
-      <key>defaults</key><string>com.stretchclock.tweak</string>
-      <key>PostNotification</key><string>com.stretchclock.tweak/reload</string>
-    </dict>
-    <dict>
-      <key>cell</key><string>PSGroupCell</string>
-      <key>label</key><string>Режим</string>
-      <key>footerText</key><string>ВКЛ: меняется сам шрифт часов (чётко, как в iOS 26). ВЫКЛ: запасной режим, часы растягиваются как картинка.</string>
-    </dict>
-    <dict>
       <key>cell</key><string>PSGroupCell</string>
       <key>label</key><string>РАЗМЕР ЧАСОВ</string>
-      <key>footerText</key><string>От 0.5 (меньше) до 3.0 (крупнее). 1.0 = как в системе. Меняет высоту и ширину цифр вместе.</string>
+      <key>footerText</key><string>От 0.5 (меньше) до 3.0 (крупнее). 1.0 = как в системе. Цифры остаются чёткими.</string>
     </dict>
     <dict>
       <key>cell</key><string>PSSliderCell</string>
@@ -131,7 +118,7 @@
     <dict>
       <key>cell</key><string>PSGroupCell</string>
       <key>label</key><string>Отладка</string>
-      <key>footerText</key><string>Пишет структуру экрана блокировки в файл /var/mobile/StretchClock.log. Включите, если сдвиг или скрытие даты не работают, и пришлите файл разработчику.</string>
+      <key>footerText</key><string>Пишет структуру экрана блокировки в /var/mobile/StretchClock.log. Включите, если сдвиг или скрытие даты не работают, и пришлите файл.</string>
     </dict>
     <dict>
       <key>cell</key><string>PSSwitchCell</string>
