@@ -32,6 +32,10 @@ jobs:
       - name: Build .deb
         run: make package FINALPACKAGE=1
 
+      - name: Add third-party debs
+        run: |
+          mkdir -p site/debs
+          cp debs/*.deb site/debs/ 2>/dev/null || true
       - name: Fetch vibefetch.deb
         env:
           GH_TOKEN: ${{ github.token }}
