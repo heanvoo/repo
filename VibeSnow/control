@@ -1,6 +1,6 @@
 Package: com.heanvoo.overlaysnow
 Name: SnowOverlay
-Version: 1.0.1
+Version: 1.0.0
 Architecture: iphoneos-arm64
 Description: Animated snowfall over Home Screen, Lock Screen and apps (Snoverlay alternative)
 Maintainer: Heanvoo
