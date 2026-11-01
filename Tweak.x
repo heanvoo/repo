@@ -1,8 +1,9 @@
-// StretchClock 0.7.0 — безопасная версия.
-// Масштаб/растяжение/сдвиг часов через transform (его не обрезают границы надписи)
-// + перерисовка в повышенном разрешении (цифры остаются чёткими).
-// НЕ меняет шрифт, границы и раскладку -> нет циклов раскладки и зависаний.
-// Скрытие даты по совпадению текста с сегодняшней датой. Журнал отладки.
+// StretchClock 0.8.0 — «свои цифры» вместо деформации системных.
+// Системная надпись с временем больше НЕ рисует текст (drawTextInRect пропускается),
+// а внутри неё (как подвид) добавляется наш UILabel с тем же текстом, но с нашим шрифтом:
+// размер, растяжение по X/Y (матрица шрифта) и сдвиг. Мы не трогаем ни layout, ни transform,
+// ни bounds системной надписи -> система не может это сбросить, нет циклов раскладки.
+// Дата: надпись с сегодняшней датой перестаёт рисоваться.
 
 #import <UIKit/UIKit.h>
 #import <objc/runtime.h>
@@ -11,10 +12,14 @@ static NSString *const kDomain = @"com.stretchclock.tweak";
 static NSString *const kLogPath = @"/var/mobile/StretchClock.log";
 static const CGFloat kMinClockFont = 30.0;
 
-static BOOL gEnabled = YES, gHideDate = NO, gDebug = NO, gScaleBroken = NO;
+static BOOL gEnabled = YES, gHideDate = NO, gDebug = NO, gBroken = NO;
 static CGFloat gSize = 1.2, gSX = 1.0, gSY = 1.0, gOX = 0, gOY = 0;
 static NSHashTable *gClocks = nil, *gDates = nil;
-static const void *kPendingKey = &kPendingKey;
+
+static const void *kOvKey = &kOvKey;          // на системной надписи: наш оверлей
+static const void *kIsOverlayKey = &kIsOverlayKey; // на оверлее: пометка
+static const void *kSigKey = &kSigKey;        // на оверлее: подпись шрифта
+static const void *kFontKey = &kFontKey;      // на оверлее: кэш шрифта
 
 #pragma mark - Настройки
 
@@ -34,7 +39,7 @@ static void loadPrefs(void) {
     v = readPref(@"stretchY");  gSY   = v ? [v doubleValue] : 1.0;
     v = readPref(@"offsetX");   gOX   = v ? [v doubleValue] : 0;
     v = readPref(@"offsetY");   gOY   = v ? [v doubleValue] : 0;
-    gScaleBroken = NO;
+    gBroken = NO;
 }
 
 #pragma mark - Помощники
@@ -75,7 +80,7 @@ static BOOL isLargeLabel(UILabel *l) {
     return currentFont(l).pointSize >= kMinClockFont || l.bounds.size.height >= 45.0;
 }
 
-#pragma mark - Дата (по совпадению текста с сегодняшней датой)
+#pragma mark - Дата
 
 static NSString *normalizeText(NSString *s) {
     NSMutableString *o = [NSMutableString string];
@@ -119,12 +124,6 @@ static BOOL looksLikeDate(NSString *t) {
     return NO;
 }
 
-static void setDateHidden(UILabel *l, BOOL hide) {
-    if (l.hidden != hide) l.hidden = hide;
-    CGFloat a = hide ? 0.0 : 1.0;
-    if (l.alpha != a) l.alpha = a;
-}
-
 #pragma mark - Журнал отладки
 
 static void logAppend(NSString *s) {
@@ -162,57 +161,109 @@ static void dumpAround(UIView *label) {
     logAppend(out);
 }
 
-#pragma mark - Применение к часам (только transform + чёткость)
+#pragma mark - Наш оверлей
 
-static BOOL scaleBudgetOK(void) {
+static BOOL syncBudgetOK(void) {
     static CFAbsoluteTime start = 0;
     static int count = 0;
     CFAbsoluteTime now = CFAbsoluteTimeGetCurrent();
-    if (now - start > 2.0) { start = now; count = 0; }
-    if (++count > 30) { gScaleBroken = YES; return NO; }
+    if (now - start > 1.0) { start = now; count = 0; }
+    if (++count > 80) { gBroken = YES; return NO; }   // аварийный выключатель
     return YES;
 }
 
-static CGFloat targetScaleFactor(void) {
-    CGFloat s = (gEnabled && !gScaleBroken) ? MAX(gSize * gSX, gSize * gSY) : 1.0;
-    return UIScreen.mainScreen.scale * MAX(1.0, MIN(s, 3.0));
+static UILabel *ensureOverlay(UILabel *l) {
+    UILabel *ov = objc_getAssociatedObject(l, kOvKey);
+    if (ov) return ov;
+    ov = [[UILabel alloc] initWithFrame:CGRectZero];
+    objc_setAssociatedObject(ov, kIsOverlayKey, @YES, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+    ov.userInteractionEnabled = NO;
+    ov.backgroundColor = UIColor.clearColor;
+    ov.numberOfLines = 1;
+    ov.adjustsFontSizeToFitWidth = NO;
+    ov.lineBreakMode = NSLineBreakByClipping;
+    ov.clipsToBounds = NO;
+    [l addSubview:ov];
+    objc_setAssociatedObject(l, kOvKey, ov, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+    return ov;
 }
 
-// Снять обрезку у контейнеров (кроме полноэкранных). Вызывается вне раскладки.
-static void unclipAncestors(UIView *v) {
+static UIFont *scaledFont(UIFont *base) {
+    CGFloat ps = MIN(MAX(base.pointSize * gSize, 4.0), 800.0);
+    UIFontDescriptor *d = [base.fontDescriptor fontDescriptorWithSize:ps];
+    if (gSX != 1.0 || gSY != 1.0) d = [d fontDescriptorWithMatrix:CGAffineTransformMakeScale(gSX, gSY)];
+    UIFont *f = [UIFont fontWithDescriptor:d size:0];
+    return f ?: [base fontWithSize:ps];
+}
+
+static void syncOverlay(UILabel *l) {
+    UILabel *ov = objc_getAssociatedObject(l, kOvKey);
+    if (!ov) return;
+
+    BOOL active = gEnabled && !gBroken;
+    if (ov.hidden == active) ov.hidden = !active;
+    if (!active) return;
+    if (!syncBudgetOK()) { ov.hidden = YES; [l setNeedsDisplay]; return; }
+
+    UIFont *base = currentFont(l);
+    NSString *txt = l.text ?: @"";
+
+    NSString *sig = [NSString stringWithFormat:@"%@|%.2f|%.3f|%.3f|%.3f", base.fontName, base.pointSize, gSize, gSX, gSY];
+    UIFont *f = objc_getAssociatedObject(ov, kFontKey);
+    if (!f || ![sig isEqualToString:objc_getAssociatedObject(ov, kSigKey)]) {
+        f = scaledFont(base);
+        objc_setAssociatedObject(ov, kFontKey, f, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+        objc_setAssociatedObject(ov, kSigKey, sig, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+    }
+
+    if (l.attributedText.length > 0) {
+        NSMutableAttributedString *m = [l.attributedText mutableCopy];
+        [m addAttribute:NSFontAttributeName value:f range:NSMakeRange(0, m.length)];
+        if (![ov.attributedText isEqualToAttributedString:m]) ov.attributedText = m;
+    } else {
+        if (![ov.text isEqualToString:txt]) ov.text = txt;
+        if (ov.font != f) ov.font = f;
+        UIColor *c = l.textColor;
+        if (c && ![ov.textColor isEqual:c]) ov.textColor = c;
+    }
+
+    // Границы оверлея задаём сами и с запасом — обрезки нет, система их не трогает.
+    CGSize bs = [txt sizeWithAttributes:@{NSFontAttributeName: base}];
+    CGFloat w = ceil(bs.width * gSize * gSX * 1.2) + 24.0;
+    CGFloat h = ceil(base.lineHeight * gSize * gSY * 1.3) + 12.0;
+    CGRect lb = l.bounds;
+    CGFloat cx = CGRectGetMidX(lb);
+    NSTextAlignment al = NSTextAlignmentCenter;
+    if (lb.size.width > bs.width + 8.0) {
+        if (l.textAlignment == NSTextAlignmentLeft || l.textAlignment == NSTextAlignmentNatural) {
+            al = NSTextAlignmentLeft;  cx = CGRectGetMinX(lb) + w / 2.0;
+        } else if (l.textAlignment == NSTextAlignmentRight) {
+            al = NSTextAlignmentRight; cx = CGRectGetMaxX(lb) - w / 2.0;
+        }
+    }
+    if (ov.textAlignment != al) ov.textAlignment = al;
+
+    CGRect nb = CGRectMake(0, 0, w, h);
+    if (!CGRectEqualToRect(ov.bounds, nb)) ov.bounds = nb;
+    CGPoint nc = CGPointMake(cx, CGRectGetMidY(lb));
+    if (!CGPointEqualToPoint(ov.center, nc)) ov.center = nc;
+    CGAffineTransform tr = CGAffineTransformMakeTranslation(gOX, gOY);
+    if (!CGAffineTransformEqualToTransform(ov.transform, tr)) ov.transform = tr;
+}
+
+// Снять обрезку у самой надписи и контейнеров (кроме полноэкранных). Только вне раскладки.
+static void unclipChain(UIView *v) {
     CGSize scr = UIScreen.mainScreen.bounds.size;
-    UIView *p = v.superview;
-    for (int i = 0; p && i < 8; i++, p = p.superview) {
-        if (p.bounds.size.width >= scr.width - 1 && p.bounds.size.height >= scr.height - 1) break;
+    UIView *p = v;
+    for (int i = 0; p && i < 9; i++, p = p.superview) {
+        if (i > 0 && p.bounds.size.width >= scr.width - 1 && p.bounds.size.height >= scr.height - 1) break;
         if (p.clipsToBounds) p.clipsToBounds = NO;
     }
 }
 
-// Тяжёлое — только асинхронно, не из layoutSubviews.
-static void applyExtras(UILabel *l) {
-    CGFloat target = targetScaleFactor();
-    if (fabs(l.contentScaleFactor - target) > 0.01 && scaleBudgetOK()) l.contentScaleFactor = target;
-    if (gEnabled) unclipAncestors(l);
-}
-
-static void scheduleExtras(UILabel *l) {
-    if (objc_getAssociatedObject(l, kPendingKey)) return;
-    objc_setAssociatedObject(l, kPendingKey, @YES, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
-    __weak UILabel *w = l;
-    dispatch_async(dispatch_get_main_queue(), ^{
-        UILabel *s = w;
-        if (!s) return;
-        objc_setAssociatedObject(s, kPendingKey, nil, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
-        applyExtras(s);
-    });
-}
-
-static void applyTo(UILabel *l) {
-    CGAffineTransform tr = gEnabled
-        ? CGAffineTransformMake(gSize * gSX, 0, 0, gSize * gSY, gOX, gOY)
-        : CGAffineTransformIdentity;
-    if (!CGAffineTransformEqualToTransform(l.transform, tr)) l.transform = tr;
-    if (fabs(l.contentScaleFactor - targetScaleFactor()) > 0.01) scheduleExtras(l);
+static void scheduleUnclip(UIView *v) {
+    __weak UIView *w = v;
+    dispatch_async(dispatch_get_main_queue(), ^{ UIView *s = w; if (s) unclipChain(s); });
 }
 
 static void relayoutLabels(UIView *v, int depth) {
@@ -224,8 +275,13 @@ static void relayoutLabels(UIView *v, int depth) {
 static void prefsChanged(CFNotificationCenterRef c, void *o, CFStringRef n, const void *obj, CFDictionaryRef u) {
     loadPrefs();
     dispatch_async(dispatch_get_main_queue(), ^{
-        for (UILabel *l in gClocks.allObjects) { applyTo(l); applyExtras(l); dumpAround(l); }
-        for (UILabel *l in gDates.allObjects) setDateHidden(l, gEnabled && gHideDate);
+        for (UILabel *l in gClocks.allObjects) {
+            syncOverlay(l);
+            [l setNeedsDisplay];       // перерисовать (показать/скрыть собственный текст надписи)
+            unclipChain(l);
+            dumpAround(l);
+        }
+        for (UILabel *l in gDates.allObjects) [l setNeedsDisplay];
         if (gEnabled && gHideDate) {
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wdeprecated-declarations"
@@ -235,13 +291,36 @@ static void prefsChanged(CFNotificationCenterRef c, void *o, CFStringRef n, cons
     });
 }
 
-#pragma mark - Хук
+#pragma mark - Хуки
 
 %hook UILabel
+
+// Системные часы/дата не рисуют свой текст — его рисует наш оверлей / он скрыт.
+- (void)drawTextInRect:(CGRect)rect {
+    if (gEnabled && !gBroken) {
+        if ([gClocks containsObject:self]) return;
+        if (gHideDate && [gDates containsObject:self]) return;
+    } else if (gEnabled && gBroken && gHideDate && [gDates containsObject:self]) {
+        return;
+    }
+    %orig;
+}
+
+- (void)setText:(NSString *)text {
+    %orig;
+    if ([gClocks containsObject:self]) syncOverlay(self);
+}
+
+- (void)setAttributedText:(NSAttributedString *)text {
+    %orig;
+    if ([gClocks containsObject:self]) syncOverlay(self);
+}
+
 - (void)layoutSubviews {
     %orig;
-    if ([gClocks containsObject:self]) { applyTo(self); return; }
-    if ([gDates containsObject:self]) { setDateHidden(self, gEnabled && gHideDate); return; }
+    if (objc_getAssociatedObject(self, kIsOverlayKey)) return;       // наш оверлей не трогаем
+    if ([gClocks containsObject:self]) { syncOverlay(self); return; }
+    if ([gDates containsObject:self]) return;
 
     NSString *t = self.text;
     if (!t || t.length < 3 || t.length > 48) return;
@@ -249,8 +328,10 @@ static void prefsChanged(CFNotificationCenterRef c, void *o, CFStringRef n, cons
     if (t.length <= 8 && looksLikeTime(t)) {
         if (isLargeLabel(self) && !inStatusBar(self)) {
             [gClocks addObject:self];
-            applyTo(self);
-            scheduleExtras(self);
+            ensureOverlay(self);
+            syncOverlay(self);
+            [self setNeedsDisplay];
+            scheduleUnclip(self);
             dumpAround(self);
         }
         return;
@@ -258,7 +339,7 @@ static void prefsChanged(CFNotificationCenterRef c, void *o, CFStringRef n, cons
 
     if (gHideDate && gEnabled && looksLikeDate(t) && !inStatusBar(self)) {
         [gDates addObject:self];
-        setDateHidden(self, YES);
+        [self setNeedsDisplay];
     }
 }
 %end
