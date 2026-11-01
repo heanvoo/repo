@@ -4,13 +4,13 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Heanvoo's Repo</title>
-  <!-- Подключаем скругленный шрифт Nunito -->
+  
+  <!-- Подключаем скругленный шрифт -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Quicksand:wght@500;700&display=swap" rel="stylesheet">
   
   <style>
-    /* Сброс стилей */
     * {
       box-sizing: border-box;
       margin: 0;
@@ -18,135 +18,70 @@
     }
 
     body {
-      font-family: 'Nunito', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-      background-color: #f3f4f6; /* Светло-серый фон, как в простых шаблонах */
-      color: #333;
-      padding: 40px 20px;
+      
+      background-color: #2b303b; 
+      color: #d8dee9; 
+      font-family: 'Quicksand', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      min-height: 100vh;
       display: flex;
       flex-direction: column;
       align-items: center;
-      min-height: 100vh;
-    }
-
-    .container {
-      width: 100%;
-      max-width: 600px;
-      background: #fff;
-      border-radius: 16px; /* Скругленные углы контейнера */
-      padding: 30px;
-      box-shadow: 0 4px 12px rgba(0,0,0,0.05); /* Легкая тень */
+      justify-content: center; /* Центрируем всё по вертикали и горизонтали */
+      padding: 20px;
+      text-align: center;
     }
 
     h1 {
-      text-align: center;
-      font-size: 24px;
+      font-size: 28px;
       font-weight: 700;
       margin-bottom: 25px;
-      color: #111;
+      color: #eceff4; /* Чуть более белый цвет для заголовка */
+      letter-spacing: 0.5px;
     }
 
-    .repo-item {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      padding: 15px 0;
-      border-bottom: 1px solid #eee;
-      gap: 10px;
-    }
-
-    .repo-item:last-child {
-      border-bottom: none;
-      padding-bottom: 0;
-    }
-
-    .repo-info {
+    .links {
       display: flex;
       flex-direction: column;
-      gap: 4px;
+      gap: 8px; /* Расстояние между строками */
+      margin-bottom: 40px;
     }
 
-    .repo-name {
-      font-weight: 700;
-      font-size: 16px;
-    }
-
-    .repo-url {
-      font-size: 13px;
-      color: #888;
-      word-break: break-all;
-    }
-
-    .buttons {
-      display: flex;
-      gap: 8px;
-      flex-shrink: 0;
-    }
-
-    .btn {
+    .links a {
+      color: #d8dee9;
       text-decoration: none;
-      font-size: 13px;
-      font-weight: 600;
-      padding: 8px 12px;
-      border-radius: 8px; /* Кнопки со скругленными углами */
-      color: #fff;
-      transition: opacity 0.2s;
+      font-size: 16px;
+      transition: color 0.2s;
     }
 
-    .btn:hover {
-      opacity: 0.8;
+    .links a:hover {
+      color: #88c0d0; 
     }
 
-    /* Простые цвета кнопок */
-    .btn-sileo { background: #007aff; }
-    .btn-cydia { background: #ff9500; }
-    .btn-zebra { background: #34c759; }
+    
+    .links a span {
+      text-decoration: underline;
+      text-underline-offset: 3px;
+    }
 
     .footer {
+      font-size: 14px;
+      color: #8a95a5;
       margin-top: 20px;
-      font-size: 12px;
-      color: #999;
-    }
-
-    /* Адаптивность для телефонов */
-    @media (max-width: 500px) {
-      .repo-item {
-        flex-direction: column;
-        align-items: flex-start;
-        gap: 12px;
-      }
-      .buttons {
-        width: 100%;
-      }
-      .btn {
-        flex: 1;
-        text-align: center;
-      }
     }
   </style>
 </head>
 <body>
 
-  <div class="container">
-    <h1>Heanvoo's Repo</h1>
+  <h1>Heanvoo's Repo</h1>
 
-    <div class="repo-item">
-      <div class="repo-info">
-        <span class="repo-name">Heanvoo's Repo</span>
-        <span class="repo-url">https://heanvoo.github.io/repo</span>
-      </div>
-      <div class="buttons">
-        <a class="btn btn-sileo" href="sileo://source/https://heanvoo.github.io/repo">Sileo</a>
-        <a class="btn btn-cydia" href="cydia://url/https://cydia.saurik.com/api/share#?source=https://heanvoo.github.io/repo">Cydia</a>
-        <a class="btn btn-zebra" href="zbra://sources/add/https://heanvoo.github.io/repo">Zebra</a>
-      </div>
-    </div>
-
-    
-
+  <div class="links">
+    <a href="cydia://url/https://cydia.saurik.com/api/share#?source=https://heanvoo.github.io/repo">Add to <span>Cydia</span></a>
+    <a href="sileo://source/https://heanvoo.github.io/repo">Add to <span>Sileo</span></a>
+    <a href="zbra://sources/add/https://heanvoo.github.io/repo">Add to <span>Zebra</span></a>
   </div>
 
   <div class="footer">
-    &copy; 2026 Heanvoo
+    Hello world!
   </div>
 
 </body>
