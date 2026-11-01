@@ -11,12 +11,12 @@
   <array>
     <dict>
       <key>cell</key><string>PSGroupCell</string>
-      <key>label</key><string>Общее</string>
-      <key>footerText</key><string>Изменения применяются сразу. Перейдите на экран блокировки, чтобы увидеть результат.</string>
+      <key>label</key><string>General</string>
+      <key>footerText</key><string>Changes apply instantly. Go to the Lock Screen to see the result.</string>
     </dict>
     <dict>
       <key>cell</key><string>PSSwitchCell</string>
-      <key>label</key><string>Включить твик</string>
+      <key>label</key><string>Enable tweak</string>
       <key>key</key><string>enabled</string>
       <key>default</key><true/>
       <key>defaults</key><string>com.stretchclock.tweak</string>
@@ -24,14 +24,14 @@
     </dict>
     <dict>
       <key>cell</key><string>PSGroupCell</string>
-      <key>label</key><string>РАЗМЕР ЧАСОВ</string>
-      <key>footerText</key><string>От 0.5 (меньше) до 3.0 (крупнее). 1.0 = как в системе. Цифры остаются чёткими.</string>
+      <key>label</key><string>CLOCK SIZE</string>
+      <key>footerText</key><string>From 0.5 (smaller) to 5.0 (larger). 1.0 = system default. Scales the digits in both directions and keeps them sharp.</string>
     </dict>
     <dict>
       <key>cell</key><string>PSSliderCell</string>
       <key>key</key><string>size</string>
       <key>min</key><real>0.5</real>
-      <key>max</key><real>3.0</real>
+      <key>max</key><real>5.0</real>
       <key>default</key><real>1.2</real>
       <key>showValue</key><true/>
       <key>isContinuous</key><false/>
@@ -40,14 +40,14 @@
     </dict>
     <dict>
       <key>cell</key><string>PSGroupCell</string>
-      <key>label</key><string>РАСТЯЖЕНИЕ ПО ШИРИНЕ (X)</string>
-      <key>footerText</key><string>Дополнительно шире или уже. 1.0 = без изменений.</string>
+      <key>label</key><string>WIDTH STRETCH (X)</string>
+      <key>footerText</key><string>Extra horizontal stretch, from 0.6 to 5.0. 1.0 = no change.</string>
     </dict>
     <dict>
       <key>cell</key><string>PSSliderCell</string>
       <key>key</key><string>stretchX</string>
       <key>min</key><real>0.6</real>
-      <key>max</key><real>2.0</real>
+      <key>max</key><real>5.0</real>
       <key>default</key><real>1.0</real>
       <key>showValue</key><true/>
       <key>isContinuous</key><false/>
@@ -56,14 +56,14 @@
     </dict>
     <dict>
       <key>cell</key><string>PSGroupCell</string>
-      <key>label</key><string>РАСТЯЖЕНИЕ ПО ВЫСОТЕ (Y)</string>
-      <key>footerText</key><string>Дополнительно выше или ниже. 1.0 = без изменений.</string>
+      <key>label</key><string>HEIGHT STRETCH (Y)</string>
+      <key>footerText</key><string>Extra vertical stretch, from 0.6 to 5.0. 1.0 = no change.</string>
     </dict>
     <dict>
       <key>cell</key><string>PSSliderCell</string>
       <key>key</key><string>stretchY</string>
       <key>min</key><real>0.6</real>
-      <key>max</key><real>2.5</real>
+      <key>max</key><real>5.0</real>
       <key>default</key><real>1.0</real>
       <key>showValue</key><true/>
       <key>isContinuous</key><false/>
@@ -72,8 +72,8 @@
     </dict>
     <dict>
       <key>cell</key><string>PSGroupCell</string>
-      <key>label</key><string>СДВИГ ВЛЕВО / ВПРАВО</string>
-      <key>footerText</key><string>От -200 (влево) до 200 (вправо). 0 = на своём месте.</string>
+      <key>label</key><string>HORIZONTAL OFFSET</string>
+      <key>footerText</key><string>From -200 (left) to 200 (right). 0 = original position.</string>
     </dict>
     <dict>
       <key>cell</key><string>PSSliderCell</string>
@@ -88,8 +88,8 @@
     </dict>
     <dict>
       <key>cell</key><string>PSGroupCell</string>
-      <key>label</key><string>СДВИГ ВВЕРХ / ВНИЗ</string>
-      <key>footerText</key><string>От -300 (вверх) до 300 (вниз). 0 = на своём месте.</string>
+      <key>label</key><string>VERTICAL OFFSET</string>
+      <key>footerText</key><string>From -300 (up) to 300 (down). 0 = original position.</string>
     </dict>
     <dict>
       <key>cell</key><string>PSSliderCell</string>
@@ -104,12 +104,12 @@
     </dict>
     <dict>
       <key>cell</key><string>PSGroupCell</string>
-      <key>label</key><string>Дата</string>
-      <key>footerText</key><string>Скрывает надпись с сегодняшней датой над часами.</string>
+      <key>label</key><string>Date</string>
+      <key>footerText</key><string>Hides the label that shows the current date above the clock.</string>
     </dict>
     <dict>
       <key>cell</key><string>PSSwitchCell</string>
-      <key>label</key><string>Скрыть дату</string>
+      <key>label</key><string>Hide date</string>
       <key>key</key><string>hideDate</string>
       <key>default</key><false/>
       <key>defaults</key><string>com.stretchclock.tweak</string>
@@ -117,12 +117,12 @@
     </dict>
     <dict>
       <key>cell</key><string>PSGroupCell</string>
-      <key>label</key><string>Отладка</string>
-      <key>footerText</key><string>Пишет структуру экрана блокировки в /var/mobile/StretchClock.log. Включите, если сдвиг или скрытие даты не работают, и пришлите файл.</string>
+      <key>label</key><string>Debug</string>
+      <key>footerText</key><string>Writes the Lock Screen view structure to /var/mobile/StretchClock.log. Turn it on if offset or date hiding does not work, and send the file to the developer.</string>
     </dict>
     <dict>
       <key>cell</key><string>PSSwitchCell</string>
-      <key>label</key><string>Режим отладки</string>
+      <key>label</key><string>Debug mode</string>
       <key>key</key><string>debug</string>
       <key>default</key><false/>
       <key>defaults</key><string>com.stretchclock.tweak</string>
