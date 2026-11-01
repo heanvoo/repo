@@ -113,14 +113,26 @@ static void configureEmitter(void) {
     gEmitter.emitterCells = @[c];
 }
 
+static UIWindowScene *pickScene(void) {
+    CGSize full = UIScreen.mainScreen.bounds.size;
+    UIWindowScene *best = nil;
+    for (UIScene *s in UIApplication.sharedApplication.connectedScenes) {
+        if (![s isKindOfClass:UIWindowScene.class]) continue;
+        UIWindowScene *ws = (UIWindowScene *)s;
+        CGSize cs = ws.coordinateSpace.bounds.size;
+        // skip status-bar-sized and other partial scenes
+        if (fabs(cs.width - full.width) > 1 || fabs(cs.height - full.height) > 1) continue;
+        best = ws;
+        if (ws.activationState == UISceneActivationStateForegroundActive) break;
+    }
+    return best;
+}
+
 static void ensureWindow(void) {
     if (gWindow) return;
     CGRect b = UIScreen.mainScreen.bounds;
 
-    UIWindowScene *scene = nil;
-    for (UIScene *s in UIApplication.sharedApplication.connectedScenes) {
-        if ([s isKindOfClass:UIWindowScene.class]) { scene = (UIWindowScene *)s; break; }
-    }
+    UIWindowScene *scene = pickScene();
     gWindow = scene ? [[VSPassWindow alloc] initWithWindowScene:scene]
                     : [[VSPassWindow alloc] initWithFrame:b];
     gWindow.frame = b;
@@ -131,9 +143,11 @@ static void ensureWindow(void) {
     UIViewController *vc = [UIViewController new];
     vc.view.backgroundColor = UIColor.clearColor;
     vc.view.userInteractionEnabled = NO;
+    vc.view.clipsToBounds = NO;
     gWindow.rootViewController = vc;
 
     gEmitter = [CAEmitterLayer layer];
+    gEmitter.masksToBounds = NO;
     [vc.view.layer addSublayer:gEmitter];
 }
 
