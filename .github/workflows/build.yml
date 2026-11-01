@@ -41,8 +41,8 @@ jobs:
           bzip2 -k -f Packages
           gzip -k -f Packages
           cat > Release <<'REL'
-          Origin: LeetMan1a Repo
-          Label: LeetMan1a Repo
+          Origin: Heanvoo's Repository
+          Label: Heanvoo's Repository
           Suite: stable
           Version: 1.0
           Codename: ios
@@ -50,7 +50,7 @@ jobs:
           Components: main
           Description: StretchClock tweak repository
           REL
-          echo "<h1>LeetMan1a Repo</h1><p>Add this URL to Sileo.</p>" > index.html
+          echo "<h1>Heanvoo's Repository</h1><p>Add this URL to Sileo.</p>" > index.html
 
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
