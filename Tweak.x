@@ -20,6 +20,7 @@ static const void *kOvKey = &kOvKey;          // on the system label: our overla
 static const void *kIsOverlayKey = &kIsOverlayKey; // on the overlay: marker
 static const void *kSigKey = &kSigKey;        // on the overlay: font signature
 static const void *kFontKey = &kFontKey;      // on the overlay: cached font
+static const void *kNoClipKey = &kNoClipKey;      // on ancestors: never allow clipping again
 
 #pragma mark - Preferences
 
@@ -251,13 +252,16 @@ static void syncOverlay(UILabel *l) {
     if (!CGAffineTransformEqualToTransform(ov.transform, tr)) ov.transform = tr;
 }
 
-// Disable clipping on the label and its containers (except full-screen ones). Never called from layout.
+// Disable clipping on the label and its containers (except full-screen ones) and keep it disabled.
 static void unclipChain(UIView *v) {
     CGSize scr = UIScreen.mainScreen.bounds.size;
     UIView *p = v;
-    for (int i = 0; p && i < 9; i++, p = p.superview) {
+    for (int i = 0; p && i < 12; i++, p = p.superview) {
         if (i > 0 && p.bounds.size.width >= scr.width - 1 && p.bounds.size.height >= scr.height - 1) break;
+        objc_setAssociatedObject(p, kNoClipKey, @YES, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+        objc_setAssociatedObject(p.layer, kNoClipKey, @YES, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
         if (p.clipsToBounds) p.clipsToBounds = NO;
+        if (p.layer.masksToBounds) p.layer.masksToBounds = NO;
     }
 }
 
@@ -293,6 +297,20 @@ static void prefsChanged(CFNotificationCenterRef c, void *o, CFStringRef n, cons
 
 #pragma mark - Hooks
 
+%hook UIView
+- (void)setClipsToBounds:(BOOL)clips {
+    if (clips && objc_getAssociatedObject(self, kNoClipKey)) clips = NO;
+    %orig(clips);
+}
+%end
+
+%hook CALayer
+- (void)setMasksToBounds:(BOOL)masks {
+    if (masks && objc_getAssociatedObject(self, kNoClipKey)) masks = NO;
+    %orig(masks);
+}
+%end
+
 %hook UILabel
 
 // The system clock/date labels don't draw their own text: our overlay draws it / it is hidden.
@@ -302,6 +320,10 @@ static void prefsChanged(CFNotificationCenterRef c, void *o, CFStringRef n, cons
         if (gHideDate && [gDates containsObject:self]) return;
     } else if (gEnabled && gBroken && gHideDate && [gDates containsObject:self]) {
         return;
+- (void)didMoveToWindow {
+    %orig;
+    if (self.window && [gClocks containsObject:self]) scheduleUnclip(self);
+}
     }
     %orig;
 }
