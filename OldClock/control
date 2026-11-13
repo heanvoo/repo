@@ -1,1 +1,11 @@
-
+Package: com.heanvoo.oldclock
+Name: OldClock
+Version: 1.0.0
+Architecture: iphoneos-arm64
+Description: Brings back the iOS 14/15 Lock Screen clock style: thin digits and the date under the time
+Maintainer: Heanvoo
+Author: Heanvoo
+Section: Tweaks
+Depends: mobilesubstrate, preferenceloader, firmware (>= 16.0)
+Conflicts: com.stretchclock.tweak
+Icon: https://heanvoo.github.io/repo/RepoIcon.png
