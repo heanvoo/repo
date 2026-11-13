@@ -49,6 +49,20 @@
 		</dict>
 		<dict>
 			<key>cell</key>
+			<string>PSSwitchCell</string>
+			<key>label</key>
+			<string>Behind icons</string>
+			<key>defaults</key>
+			<string>com.heanvoo.overlaysnow</string>
+			<key>key</key>
+			<string>behindIcons</string>
+			<key>default</key>
+			<false/>
+			<key>PostNotification</key>
+			<string>com.heanvoo.overlaysnow/reload</string>
+		</dict>
+		<dict>
+			<key>cell</key>
 			<string>PSGroupCell</string>
 			<key>label</key>
 			<string>Amount</string>
