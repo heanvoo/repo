@@ -35,6 +35,8 @@ jobs:
 
       - name: Build VibeSnow .deb
         run: make -C VibeSnow package FINALPACKAGE=1
+      - name: Build OldClock .deb
+        run: make -C OldClock package FINALPACKAGE=1
 
       - name: Add third-party debs
         run: |
@@ -55,6 +57,7 @@ jobs:
           mkdir -p site/debs
           cp packages/*.deb site/debs/
           cp VibeSnow/packages/*.deb site/debs/
+          cp OldClock/packages/*.deb site/debs/
           cp CydiaIcon.png site/CydiaIcon.png
           cp RepoIcon.png site/RepoIcon.png
           cp index.html site/index.html
