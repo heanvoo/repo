@@ -320,10 +320,6 @@ static void prefsChanged(CFNotificationCenterRef c, void *o, CFStringRef n, cons
         if (gHideDate && [gDates containsObject:self]) return;
     } else if (gEnabled && gBroken && gHideDate && [gDates containsObject:self]) {
         return;
-- (void)didMoveToWindow {
-    %orig;
-    if (self.window && [gClocks containsObject:self]) scheduleUnclip(self);
-}
     }
     %orig;
 }
@@ -336,6 +332,11 @@ static void prefsChanged(CFNotificationCenterRef c, void *o, CFStringRef n, cons
 - (void)setAttributedText:(NSAttributedString *)text {
     %orig;
     if ([gClocks containsObject:self]) syncOverlay(self);
+}
+
+- (void)didMoveToWindow {
+    %orig;
+    if (self.window && [gClocks containsObject:self]) scheduleUnclip(self);
 }
 
 - (void)layoutSubviews {
